@@ -14,7 +14,6 @@ function QuizModal({ isOpen, onClose, quizData }) {
     if (selected === quizData[currentQuestion].answer) {
       setScore(score + 1);
     }
-
     if (currentQuestion + 1 < quizData.length) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
@@ -80,24 +79,45 @@ function CourseFeed() {
   const [dbCourses, setDbCourses] = useState([]);
   const [searchTerm, setSearchTerm] = useState(""); 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     async function fetchCourses() {
-      const { data } = await supabase.from('LMS| Courses').select('*').order('id', { ascending: true });
-      if (data) setDbCourses(data);
-      setLoading(false);
+      try {
+        setLoading(true);
+        // Matches your screenshot: LMS| Courses
+        const { data, error: sbError } = await supabase
+          .from('LMS| Courses')
+          .select('*')
+          .order('id', { ascending: true });
+        
+        if (sbError) throw sbError;
+        if (data) setDbCourses(data);
+      } catch (err) {
+        console.error("Fetch Error:", err.message);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
     }
     fetchCourses();
   }, []);
 
+  if (loading) return <div className="p-20 text-center font-black text-gray-400 animate-pulse">LOADING LMS...</div>;
+  
+  if (error) return (
+    <div className="p-20 text-center text-red-500 font-bold">
+      ERROR: {error} <br/>
+      Check your Table Name and Vercel Keys.
+    </div>
+  );
+
   const filteredCourses = dbCourses.filter((course) => {
-    const name = (course.module || course.Module || "").toLowerCase();
-    const desc = (course.description || course.Description || "").toLowerCase();
+    const name = (course.module || "").toLowerCase();
+    const desc = (course.description || "").toLowerCase();
     return name.includes(searchTerm.toLowerCase()) || desc.includes(searchTerm.toLowerCase());
   });
-
-  if (loading) return <div className="p-20 text-center font-black text-gray-400 animate-pulse">LOADING LMS...</div>;
 
   return (
     <div className="p-8 max-w-7xl mx-auto font-sans">
@@ -113,7 +133,7 @@ function CourseFeed() {
             className="w-full p-4 pl-12 bg-white border-2 border-gray-100 rounded-2xl shadow-sm focus:border-blue-500 outline-none transition-all font-bold"
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <span className="absolute left-4 top-4.5 text-xl">🔍</span>
+          <span className="absolute left-4 top-4 text-xl">🔍</span>
         </div>
       </div>
       
@@ -126,10 +146,10 @@ function CourseFeed() {
           >
             <div>
               <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-lg uppercase tracking-widest border border-blue-100">
-                {course.module || course.Module}
+                {course.module}
               </span>
               <h2 className="text-2xl font-black text-gray-800 mt-6 group-hover:text-blue-600 transition-colors">
-                {course.description || course.Description}
+                {course.description}
               </h2>
             </div>
             <div className="mt-8 flex items-center text-blue-600 font-black text-sm uppercase tracking-widest">
@@ -146,19 +166,10 @@ function CourseFeed() {
 function CourseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
   const [course, setCourse] = useState(null);
   const [activeLesson, setActiveLesson] = useState(0); 
   const [isQuizOpen, setIsQuizOpen] = useState(false);
-  
-  const [completedLessons, setCompletedLessons] = useState(() => {
-    const saved = localStorage.getItem(`lms-progress-${id}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem(`lms-progress-${id}`, JSON.stringify(completedLessons));
-  }, [completedLessons, id]);
+  const [completedLessons, setCompletedLessons] = useState([]);
 
   useEffect(() => {
     async function getDetails() {
@@ -168,122 +179,86 @@ function CourseDetail() {
     getDetails();
   }, [id]);
 
-  const toggleComplete = (index) => {
-    if (completedLessons.includes(index)) {
-      setCompletedLessons(completedLessons.filter(i => i !== index));
-    } else {
-      setCompletedLessons([...completedLessons, index]);
-    }
-  };
-
   if (!course) return <div className="p-20 text-center font-black animate-pulse">PREPARING CLASSROOM...</div>;
 
   const lessonNames = (course.lessons || "").split(' | ');
   const videoLinks = (course.video_urls || "").split(' | ');
   const progressPercentage = Math.round((completedLessons.length / lessonNames.length) * 100);
 
+  const toggleComplete = (index) => {
+    setCompletedLessons(prev => 
+      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+    );
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto font-sans min-h-screen">
-      <div className="flex justify-between items-center mb-10">
-        <button onClick={() => navigate('/')} className="text-gray-400 hover:text-blue-600 font-black flex items-center gap-2 transition-colors">
-          <span>←</span> BACK TO DASHBOARD
-        </button>
-      </div>
+      <button onClick={() => navigate('/')} className="mb-10 text-gray-400 hover:text-blue-600 font-black flex items-center gap-2">
+        <span>←</span> BACK TO DASHBOARD
+      </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-8 space-y-8">
-          <div className="aspect-video bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white shadow-blue-900/10">
+          <div className="aspect-video bg-black rounded-[2.5rem] overflow-hidden shadow-2xl">
             {videoLinks[activeLesson] ? (
-              <iframe className="w-full h-full" src={videoLinks[activeLesson].replace("watch?v=", "embed/")} title="Video" allowFullScreen></iframe>
+              <iframe className="w-full h-full" src={videoLinks[activeLesson].replace("watch?v=", "embed/")} allowFullScreen></iframe>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">No Video Available</div>
+              <div className="flex items-center justify-center h-full text-white">No Video Available</div>
             )}
           </div>
-
-          <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm">
-             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
-                   <span className="text-blue-600 font-black text-xs uppercase tracking-[0.2em]">Now Playing</span>
-                   <h1 className="text-4xl font-black text-gray-900 mt-2 tracking-tight">{lessonNames[activeLesson]}</h1>
-                </div>
-                <button 
-                  onClick={() => toggleComplete(activeLesson)}
-                  className={`px-10 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-xl ${
-                    completedLessons.includes(activeLesson) ? "bg-green-500 text-white" : "bg-blue-600 text-white"
-                  }`}
-                >
-                  {completedLessons.includes(activeLesson) ? "✓ COMPLETED" : "MARK AS DONE"}
-                </button>
-             </div>
+          <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
+             <h1 className="text-4xl font-black text-gray-900">{lessonNames[activeLesson]}</h1>
+             <button 
+               onClick={() => toggleComplete(activeLesson)}
+               className={`mt-6 px-10 py-5 rounded-2xl font-black ${completedLessons.includes(activeLesson) ? "bg-green-500" : "bg-blue-600"} text-white`}
+             >
+               {completedLessons.includes(activeLesson) ? "✓ COMPLETED" : "MARK AS DONE"}
+             </button>
           </div>
         </div>
 
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 sticky top-24 shadow-sm">
+          <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm sticky top-24">
             <h3 className="font-black text-xl mb-6">Course Content</h3>
             <div className="space-y-3 mb-10">
               {lessonNames.map((name, index) => (
                 <button 
                   key={index}
                   onClick={() => setActiveLesson(index)}
-                  className={`w-full text-left p-5 rounded-2xl transition-all flex items-center justify-between border-2 ${
-                    activeLesson === index ? 'bg-blue-50 border-blue-600' : 'bg-white border-transparent hover:bg-gray-50'
-                  }`}
+                  className={`w-full text-left p-5 rounded-2xl flex items-center justify-between border-2 ${activeLesson === index ? 'border-blue-600 bg-blue-50' : 'border-transparent'}`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${activeLesson === index ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
-                      {index + 1}
-                    </div>
-                    <span className="font-bold text-sm text-gray-700">{name}</span>
-                  </div>
+                  <span className="font-bold text-sm">{name}</span>
                   {completedLessons.includes(index) && <span>✅</span>}
                 </button>
               ))}
             </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                <span>Mastery</span>
-                <span>{progressPercentage}%</span>
-              </div>
-              <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
-                <div className="bg-green-500 h-full transition-all duration-1000" style={{ width: `${progressPercentage}%` }}></div>
-              </div>
-
-              {/* QUIZ GATING LOGIC */}
-              <button 
-                disabled={progressPercentage < 100}
-                onClick={() => setIsQuizOpen(true)}
-                className={`w-full mt-4 py-5 rounded-2xl font-black transition-all shadow-xl ${
-                  progressPercentage === 100 
-                  ? "bg-orange-500 text-white hover:bg-orange-600" 
-                  : "bg-gray-100 text-gray-300 cursor-not-allowed"
-                }`}
-              >
-                {progressPercentage === 100 ? "🔥 START MODULE QUIZ" : "LOCK 🔒 FINISH LESSONS"}
-              </button>
+            <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+              <div className="bg-green-500 h-full transition-all" style={{ width: `${progressPercentage}%` }}></div>
             </div>
+            <button 
+              disabled={progressPercentage < 100}
+              onClick={() => setIsQuizOpen(true)}
+              className={`w-full mt-6 py-5 rounded-2xl font-black ${progressPercentage === 100 ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+            >
+              {progressPercentage === 100 ? "🔥 START QUIZ" : "LOCK 🔒 FINISH LESSONS"}
+            </button>
           </div>
         </div>
       </div>
 
-      <QuizModal 
-        isOpen={isQuizOpen} 
-        onClose={() => setIsQuizOpen(false)} 
-        quizData={course.quiz_data} 
-      />
+      <QuizModal isOpen={isQuizOpen} onClose={() => setIsQuizOpen(false)} quizData={course.quiz_data} />
     </div>
   );
 }
 
-// --- MAIN APP WRAPPER ---
+// --- MAIN APP ---
 export default function App() {
   return (
     <Router>
       <div className="min-h-screen bg-[#FAFAFA] text-gray-900">
         <nav className="p-6 bg-white border-b border-gray-100 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="font-black text-2xl tracking-tighter text-blue-600 cursor-pointer" onClick={() => window.location.href = '/'}>
+            <div className="font-black text-2xl text-blue-600 cursor-pointer" onClick={() => window.location.href = '/'}>
               MY LMS
             </div>
             <div className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">Learning Portal</div>
@@ -296,4 +271,5 @@ export default function App() {
       </div>
     </Router>
   );
+}
 }
