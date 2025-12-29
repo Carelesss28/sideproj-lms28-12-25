@@ -56,7 +56,7 @@ function QuizModal({ isOpen, onClose, quizData }) {
           </div>
         ) : (
           <div className="text-center py-4">
-            <div className="text-7xl mb-6"> {score === quizData.length ? "🔥" : "✨"} </div>
+            <div className="text-7xl mb-6"> {score >= (quizData.length * 0.8) ? "🏆" : "✨"} </div>
             <h2 className="text-4xl font-black text-gray-900 mb-2">Quiz Results</h2>
             <p className="text-gray-500 mb-8 font-bold text-lg">
               You scored <span className="text-blue-600">{score}</span> out of {quizData.length}
@@ -86,16 +86,14 @@ function CourseFeed() {
     async function fetchCourses() {
       try {
         setLoading(true);
-        // Matches your screenshot: "Courses" with Capital C
         const { data, error: sbError } = await supabase
-          .from('Courses')
+          .from('Courses') // Matches your table name
           .select('*')
           .order('id', { ascending: true });
         
         if (sbError) throw sbError;
         if (data) setDbCourses(data);
       } catch (err) {
-        console.error("Fetch Error:", err.message);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -104,12 +102,11 @@ function CourseFeed() {
     fetchCourses();
   }, []);
 
-  if (loading) return <div className="p-20 text-center font-black text-gray-400 animate-pulse">LOADING LMS...</div>;
+  if (loading) return <div className="p-20 text-center font-black text-gray-400 animate-pulse uppercase tracking-[0.2em]">Loading LMS...</div>;
   
   if (error) return (
     <div className="p-20 text-center text-red-500 font-bold">
-      CONNECTION ERROR: {error} <br/>
-      <span className="text-gray-500 text-sm font-normal">Check Table Name (Courses) and Vercel Keys.</span>
+      CONNECTION ERROR: {error}
     </div>
   );
 
@@ -129,7 +126,7 @@ function CourseFeed() {
         <div className="relative w-full md:w-96">
           <input
             type="text"
-            placeholder="Search for a topic..."
+            placeholder="Search modules..."
             className="w-full p-4 pl-12 bg-white border-2 border-gray-100 rounded-2xl shadow-sm focus:border-blue-500 outline-none transition-all font-bold"
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -153,7 +150,7 @@ function CourseFeed() {
               </h2>
             </div>
             <div className="mt-8 flex items-center text-blue-600 font-black text-sm uppercase tracking-widest">
-              Start Learning <span className="ml-2 group-hover:translate-x-2 transition-transform">→</span>
+              Enter Module <span className="ml-2 group-hover:translate-x-2 transition-transform">→</span>
             </div>
           </div>
         ))}
@@ -170,17 +167,52 @@ function CourseDetail() {
   const [activeLesson, setActiveLesson] = useState(0); 
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [completedLessons, setCompletedLessons] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     async function getDetails() {
-      // Matches your screenshot: "Courses" with Capital C
       const { data } = await supabase.from('Courses').select('*').eq('id', id).single();
       if (data) setCourse(data);
     }
     getDetails();
   }, [id]);
 
-  if (!course) return <div className="p-20 text-center font-black animate-pulse text-gray-400">PREPARING CLASSROOM...</div>;
+  const handleFileUpload = async () => {
+    if (!selectedFile) return alert("Please select a PDF file first!");
+    
+    try {
+      setIsUploading(true);
+      const fileName = `${id}_${Date.now()}.pdf`;
+
+      // 1. Upload to Storage (Capital A)
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('Assignments') // Matches your bucket name
+        .upload(fileName, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Save to Assignments table (Capital A)
+      const { error: dbError } = await supabase
+        .from('Assignments') // Matches your table name
+        .insert([{ 
+          course_id: id, 
+          pdf_path: fileName, 
+          student_name: "Guest Student" 
+        }]);
+
+      if (dbError) throw dbError;
+
+      alert("Assignment Submitted! 📄🚀");
+      setSelectedFile(null);
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  if (!course) return <div className="p-20 text-center font-black animate-pulse text-gray-400">LOADING CONTENT...</div>;
 
   const lessonNames = (course.lessons || "").split(' | ');
   const videoLinks = (course.video_urls || "").split(' | ');
@@ -193,37 +225,65 @@ function CourseDetail() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto font-sans min-h-screen">
+    <div className="p-6 max-w-7xl mx-auto font-sans min-h-screen text-gray-900">
       <button onClick={() => navigate('/')} className="mb-10 text-gray-400 hover:text-blue-600 font-black flex items-center gap-2 transition-colors">
         <span>←</span> BACK TO DASHBOARD
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-8 space-y-8">
+          {/* Video Section */}
           <div className="aspect-video bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white">
             {videoLinks[activeLesson] ? (
               <iframe 
                 className="w-full h-full" 
                 src={videoLinks[activeLesson].includes("youtube.com") ? videoLinks[activeLesson].replace("watch?v=", "embed/") : videoLinks[activeLesson]} 
                 allowFullScreen
-                title="Lesson Video"
+                title="Lesson"
               ></iframe>
             ) : (
-              <div className="flex items-center justify-center h-full text-white font-bold">No Video Available for this Lesson</div>
+              <div className="flex items-center justify-center h-full text-white font-bold tracking-widest uppercase">Video Offline</div>
             )}
           </div>
-          <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
-             <span className="text-blue-600 font-black text-xs uppercase tracking-widest">Currently Viewing</span>
-             <h1 className="text-4xl font-black text-gray-900 mt-2">{lessonNames[activeLesson] || "Untitled Lesson"}</h1>
+
+          {/* Lesson Actions */}
+          <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
+             <div className="text-center md:text-left">
+                <span className="text-blue-600 font-black text-[10px] uppercase tracking-widest">Active Lesson</span>
+                <h1 className="text-3xl font-black text-gray-900 mt-1">{lessonNames[activeLesson] || "Lesson"}</h1>
+             </div>
              <button 
                onClick={() => toggleComplete(activeLesson)}
-               className={`mt-8 px-10 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg ${completedLessons.includes(activeLesson) ? "bg-green-500 text-white" : "bg-blue-600 text-white"}`}
+               className={`px-10 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg whitespace-nowrap ${completedLessons.includes(activeLesson) ? "bg-green-500 text-white" : "bg-blue-600 text-white"}`}
              >
                {completedLessons.includes(activeLesson) ? "✓ COMPLETED" : "MARK AS DONE"}
              </button>
           </div>
+
+          {/* Assignment Upload */}
+          <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
+            <h3 className="font-black text-2xl mb-4">Module Assignment</h3>
+            <p className="text-gray-500 font-medium mb-6">
+              {course.assignment_prompt || "Upload your completed PDF for this module."}
+            </p>
+            <div className="space-y-4">
+              <input 
+                type="file" accept=".pdf"
+                onChange={(e) => setSelectedFile(e.target.files[0])}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-black file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 cursor-pointer"
+              />
+              <button 
+                onClick={handleFileUpload}
+                disabled={isUploading || !selectedFile}
+                className={`w-full py-5 rounded-2xl font-black shadow-xl transition-all ${isUploading ? "bg-gray-300" : "bg-gray-900 text-white hover:bg-black active:scale-95"}`}
+              >
+                {isUploading ? "UPLOADING..." : "SUBMIT PDF 🚀"}
+              </button>
+            </div>
+          </div>
         </div>
 
+        {/* Sidebar */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm sticky top-24">
             <h3 className="font-black text-xl mb-6">Course Content</h3>
@@ -244,7 +304,7 @@ function CourseDetail() {
               <span>Progress</span>
               <span>{progressPercentage}%</span>
             </div>
-            <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden mb-6">
+            <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden mb-8">
               <div className="bg-green-500 h-full transition-all duration-700" style={{ width: `${progressPercentage}%` }}></div>
             </div>
 
@@ -274,11 +334,11 @@ export default function App() {
     <Router>
       <div className="min-h-screen bg-[#FAFAFA] text-gray-900">
         <nav className="p-6 bg-white border-b border-gray-100 sticky top-0 z-50">
-          <div className="max-w-7xl auto flex justify-between items-center mx-auto">
+          <div className="max-w-7xl flex justify-between items-center mx-auto">
             <div className="font-black text-2xl text-blue-600 cursor-pointer tracking-tighter" onClick={() => window.location.href = '/'}>
               MY LMS
             </div>
-            <div className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">Learning Portal</div>
+            <div className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">ML Specialization v1.0</div>
           </div>
         </nav>
         <Routes>
