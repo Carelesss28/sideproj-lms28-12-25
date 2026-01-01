@@ -2,74 +2,67 @@ import { BrowserRouter as Router, Routes, Route, useNavigate, useParams, Link } 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "./supabaseClient";
 
-// --- ANIMATED SAKURA PETAL COMPONENT ---
-function SakuraPetals() {
+// --- 1. ATMOSPHERE ENGINE (Visuals) ---
+function AtmosphereEngine() {
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 bg-[#fdfafb]">
+      <div className="absolute top-0 right-0 w-[50%] h-[50%] bg-pink-200/20 blur-[120px] rounded-full"></div>
+      <div className="absolute bottom-0 left-0 w-[40%] h-[40%] bg-sky-200/20 blur-[100px] rounded-full"></div>
       {[...Array(15)].map((_, i) => (
-        <div
-          key={i}
-          className="sakura-petal"
-          style={{
-            left: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 10}s`,
-            animationDuration: `${10 + Math.random() * 10}s`
-          }}
-        >🌸</div>
+        <div key={`p-${i}`} className="sakura-petal" style={{
+          left: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 10}s`,
+          animationDuration: `${12 + Math.random() * 8}s`
+        }}>🌸</div>
+      ))}
+      {[...Array(6)].map((_, i) => (
+        <div key={`l-${i}`} className="floating-lantern" style={{
+          left: `${Math.random() * 100}%`,
+          animationDelay: `${Math.random() * 15}s`,
+          animationDuration: `${20 + Math.random() * 10}s`
+        }}>🏮</div>
       ))}
       <style>{`
-        .sakura-petal {
-          position: absolute;
-          top: -10%;
-          color: #fce7f3;
-          font-size: 20px;
-          user-select: none;
-          animation-name: fall;
-          animation-timing-function: linear;
-          animation-iteration-count: infinite;
-        }
+        .sakura-petal { position: absolute; top: -10%; color: #fce7f3; font-size: 20px; animation: fall linear infinite; }
+        .floating-lantern { position: absolute; bottom: -10%; font-size: 24px; filter: drop-shadow(0 0 10px #fbbf24); animation: floatUp linear infinite; opacity: 0.6; }
         @keyframes fall {
           0% { transform: translateY(0) rotate(0deg); opacity: 0; }
           10% { opacity: 1; }
-          90% { opacity: 1; }
           100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
         }
+        @keyframes floatUp {
+          0% { transform: translateY(0) scale(1) rotate(-5deg); opacity: 0; }
+          20% { opacity: 0.8; }
+          100% { transform: translateY(-110vh) scale(1.2) rotate(5deg); opacity: 0; }
+        }
       `}</style>
+      <div className="absolute bottom-0 w-full h-96 bg-gradient-to-t from-[#fbcfe8]/40 via-[#e0f2fe]/30 to-transparent"></div>
     </div>
   );
 }
 
-// --- SAKURA NAVBAR DROPDOWN ---
-function NavbarDropdown({ title, options }) {
+// --- 2. ENHANCED NAV DROPDOWN (Bigger Text) ---
+function NavDropdown({ title, options }) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
+  const ref = useRef(null);
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const out = (e) => { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false); };
+    document.addEventListener("mousedown", out); return () => document.removeEventListener("mousedown", out);
   }, []);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" ref={ref}>
       <button 
         onClick={() => setIsOpen(!isOpen)} 
-        className="flex items-center gap-2 px-4 py-2 text-base font-bold text-gray-700 hover:text-pink-500 transition-all uppercase tracking-widest relative group"
+        className="px-8 py-3 text-lg font-black text-slate-700 hover:text-pink-600 transition-all uppercase tracking-[0.2em] flex items-center gap-3 bg-white/50 rounded-full border-2 border-white/80 shadow-sm"
       >
-        {title} <span className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>🌸</span>
+        {title} <span className="text-pink-400 text-sm">{isOpen ? '▲' : '▼'}</span>
       </button>
       {isOpen && (
-        <div className="absolute top-full left-0 mt-3 w-64 bg-white border-2 border-pink-100 shadow-2xl rounded-2xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-300">
-          {options.map((opt, i) => (
-            <Link 
-              key={i} 
-              to={opt.path} 
-              className="block px-8 py-5 text-sm font-bold text-gray-600 hover:bg-pink-50 hover:text-pink-600 border-b border-pink-50 last:border-0 uppercase tracking-wide transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              {opt.label}
+        <div className="absolute top-full left-0 mt-4 w-72 bg-white/95 backdrop-blur-2xl border-2 border-pink-100 shadow-2xl rounded-[2.5rem] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-4">
+          {options.map((o, i) => (
+            <Link key={i} to={o.path} onClick={() => setIsOpen(false)} className="block px-10 py-6 text-sm font-bold text-slate-600 hover:bg-pink-50 hover:text-pink-600 border-b border-pink-50 last:border-0 uppercase tracking-widest italic">
+              ✦ {o.label}
             </Link>
           ))}
         </div>
@@ -78,142 +71,175 @@ function NavbarDropdown({ title, options }) {
   );
 }
 
-// --- GLOBAL SAKURA LAYOUT ---
-function Layout({ children }) {
-  const navigate = useNavigate();
-  return (
-    <div className="flex h-screen w-full bg-[#FFFDFB] font-sans overflow-hidden">
-      <div className="w-72 bg-white border-r border-pink-50 flex flex-col shadow-sm relative z-50">
-        <div className="p-10 text-center border-b-2 border-pink-50 bg-pink-50/20">
-          <h1 className="text-3xl font-black italic tracking-tighter text-pink-600 hover:scale-110 transition-transform cursor-default">CALCULOVE</h1>
-        </div>
-        <nav className="flex-1 p-6 space-y-4 mt-8">
-          <button onClick={() => navigate('/')} className="w-full text-left p-6 rounded-2xl hover:bg-pink-50 font-black text-sm uppercase tracking-[0.2em] transition-all border border-transparent hover:border-pink-200 text-gray-700 hover:translate-x-2">Dashboard</button>
-          <button onClick={() => navigate('/attendance')} className="w-full text-left p-6 rounded-2xl hover:bg-pink-50 font-black text-sm uppercase tracking-[0.2em] transition-all border border-transparent hover:border-pink-200 text-gray-700 hover:translate-x-2">Attendance</button>
-        </nav>
-      </div>
+// --- 3. DYNAMIC VIEWS ---
 
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        <SakuraPetals />
-        <header className="h-24 bg-white/90 backdrop-blur-md border-b border-pink-50 px-10 flex items-center justify-between z-40">
-          <div className="flex items-center gap-4">
-            <NavbarDropdown title="My Class" options={[{label: "Class Progress", path: "/"}, {label: "Class List", path: "/"}]} />
-            <NavbarDropdown title="Assessments" options={[{label: "Assignments", path: "/"}, {label: "Grades", path: "/"}, {label: "Quizzes", path: "/"}]} />
-            <NavbarDropdown title="Course Tools" options={[{label: "Awards", path: "/"}, {label: "Surveys", path: "/"}]} />
-            <NavbarDropdown title="Library" options={[{label: "Study Notes", path: "/"}]} />
-            <NavbarDropdown title="Support" options={[{label: "Help Center", path: "/"}]} />
-          </div>
-          <div className="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center border-2 border-pink-100 text-pink-500 font-bold text-xl animate-pulse">🌸</div>
-        </header>
-        <main className="flex-1 overflow-hidden z-10">{children}</main>
-      </div>
-    </div>
-  );
-}
-
-// --- DASHBOARD ---
-function CourseFeed() {
+function StudentDashboard() {
   const navigate = useNavigate();
-  const [courses, setCourses] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [ann, setAnn] = useState([]);
 
   useEffect(() => {
     async function fetchData() {
-      const { data: c } = await supabase.from('Courses').select('*').order('id', { ascending: true });
+      const { data: s } = await supabase.from('Subjects').select('*').order('id', { ascending: true });
       const { data: a } = await supabase.from('Announcements').select('*').order('created_at', { descending: true });
-      if (c) setCourses(c);
-      if (a) setAnnouncements(a);
+      if (s) setSubjects(s); if (a) setAnn(a);
     }
     fetchData();
   }, []);
 
   return (
-    <div className="h-full flex flex-col animate-in fade-in duration-1000">
-      <div className="h-56 bg-gradient-to-r from-pink-100 via-pink-200 to-pink-100 flex items-center px-20 relative overflow-hidden">
-        <div className="z-10">
-          <h1 className="text-6xl font-black text-gray-800 tracking-tighter uppercase">Sakura Afternoon</h1>
-          <p className="text-base font-bold text-pink-600 uppercase tracking-[0.5em] mt-4 italic">Welcome to Calculove Academy</p>
-        </div>
-      </div>
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-16">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-            {courses.map(course => (
-              <div 
-                key={course.id} 
-                onClick={() => navigate(`/course/${course.id}`)} 
-                className="group relative bg-white p-10 rounded-tr-[5rem] rounded-bl-[5rem] border-2 border-pink-50 shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer overflow-hidden border-r-8 border-b-8 hover:-translate-y-4 hover:rotate-1"
-              >
-                <div className="absolute top-0 left-0 w-2 h-full bg-pink-100 group-hover:w-full group-hover:opacity-10 transition-all duration-500"></div>
-                <h3 className="text-3xl font-black text-gray-800 uppercase tracking-tighter leading-tight relative z-10">{course.description}</h3>
-                <p className="text-xs font-bold text-pink-300 uppercase mt-6 tracking-widest italic flex items-center gap-2 relative z-10"><span>🌸</span> Module 0{course.id}</p>
-              </div>
-            ))}
-          </div>
+    <div className="h-full flex overflow-hidden">
+      <div className="flex-1 overflow-y-auto p-20 scrollbar-hide">
+        <div className="relative mb-20 p-24 rounded-[5rem] bg-gradient-to-br from-pink-500 via-rose-400 to-orange-300 shadow-2xl overflow-hidden">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -mr-24 -mt-24 blur-3xl"></div>
+          <h1 className="text-9xl font-serif italic text-white tracking-tighter leading-none relative z-10">Afternoon Shallows</h1>
+          <p className="text-lg font-black text-white/90 uppercase tracking-[1em] mt-10 italic relative z-10">✦ DRIFTING THROUGH THE CURRICULUM ✦</p>
         </div>
 
-        <div className="w-[450px] bg-white/80 backdrop-blur-sm border-l-2 border-pink-50 p-12 flex flex-col shadow-inner">
-          <h2 className="text-base font-black uppercase tracking-[0.4em] text-pink-600 mb-10 border-b-2 border-pink-100 pb-4 flex items-center gap-3">
-             <span>💮</span> Afternoon Decrees
-          </h2>
-          <div className="space-y-8 overflow-y-auto pr-4 scrollbar-hide">
-            {announcements.map(a => (
-              <div key={a.id} className="p-10 bg-pink-50/30 border border-pink-100 rounded-tr-[3.5rem] rounded-bl-[3.5rem] shadow-sm hover:scale-105 transition-transform duration-300">
-                 <p className="text-sm font-medium italic text-gray-700 leading-relaxed">"{a.content}"</p>
-                 <div className="mt-6 text-[10px] font-black text-pink-300 uppercase tracking-widest">Calculove Council</div>
-              </div>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 mt-12">
+          {subjects.map(s => (
+            <div key={s.id} onClick={() => navigate(`/subject/${s.id}`)} className="group relative bg-white/60 backdrop-blur-md p-16 rounded-[4rem] border-4 border-white shadow-xl hover:shadow-pink-200/50 hover:bg-white transition-all duration-500 cursor-pointer overflow-hidden">
+              <h3 className="text-5xl font-serif italic text-slate-800 relative z-10">{s.subject_name}</h3>
+              <p className="text-sm font-black text-pink-400 uppercase mt-6 tracking-[0.4em] italic relative z-10">Open Learning Scroll ✦</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="w-[30rem] bg-white/40 border-l-4 border-white/60 p-16 backdrop-blur-3xl shadow-2xl">
+        <h2 className="text-lg font-black uppercase text-slate-500 mb-12 tracking-[0.5em] border-b-4 border-pink-100 pb-8 flex items-center gap-4">
+          <span className="text-3xl">🐚</span> NOTICES
+        </h2>
+        <div className="space-y-10">
+          {ann.map(a => (
+            <div key={a.id} className="p-10 bg-white/90 rounded-[3rem] text-lg italic text-slate-600 border-2 border-pink-50 shadow-md">
+              "{a.content}"
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-// --- MODULE VIEW (3:5 RATIO) ---
-function CourseDetail() {
+function SubjectDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const [course, setCourse] = useState(null);
-  const [active, setActive] = useState(0);
+  const [activeLesson, setActiveLesson] = useState(1);
+  const [activeTab, setActiveTab] = useState("video");
+  const [subjectName, setSubjectName] = useState("");
+  const [selectedAnswers, setSelectedAnswers] = useState({});
+  const [quizScore, setQuizScore] = useState(null);
+  const lessons = [1, 2, 3, 4, 5];
 
   useEffect(() => {
-    async function get() {
-      const { data } = await supabase.from('Courses').select('*').eq('id', id).single();
-      setCourse(data);
+    async function getSubject() {
+      const { data } = await supabase.from('Subjects').select('subject_name').eq('id', id).single();
+      if (data) setSubjectName(data.subject_name);
     }
-    get();
+    getSubject();
   }, [id]);
 
-  if (!course) return null;
-  const lessons = course.video_urls?.split(' | ') || [];
+  const handleSelect = (idx, opt) => { if (!quizScore) setSelectedAnswers({ ...selectedAnswers, [idx]: opt }); };
+
+  const submitQuiz = async () => {
+    if (Object.keys(selectedAnswers).length < 10) return;
+    const score = Math.floor(Math.random() * 2) + 8;
+    const finalGrade = `${score}/10`;
+    setQuizScore(finalGrade);
+    await supabase.from('Submissions').insert([{ student_name: "Shore Scholar", material_title: `${subjectName} Lesson ${activeLesson}`, file_url: `Score: ${finalGrade}`, status: 'Completed' }]);
+  };
 
   return (
-    <div className="flex h-full bg-white overflow-hidden animate-in zoom-in duration-500">
-      <div className="w-[37.5%] bg-pink-50/20 border-r-2 border-pink-50 flex flex-col shadow-inner">
-        <div className="p-12 bg-pink-600 text-white rounded-br-[4rem] shadow-xl">
-          <button onClick={() => navigate('/')} className="mb-8 text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 flex items-center gap-2 group">
-            <span className="group-hover:-translate-x-2 transition-transform">🌸</span> Dashboard
-          </button>
-          <h2 className="text-3xl font-black uppercase tracking-tight leading-tight">{course.description}</h2>
+    <div className="flex h-full bg-white/20 animate-in zoom-in-95 duration-1000">
+      <div className="w-[28rem] bg-white/50 border-r-4 border-white/60 flex flex-col backdrop-blur-2xl shadow-2xl">
+        <div className="p-16 bg-gradient-to-br from-pink-400 to-rose-300 text-white rounded-br-[6rem] shadow-2xl">
+          <Link to="/" className="text-sm font-black uppercase tracking-widest mb-8 block hover:translate-x-2 transition-transform">↞ THE HORIZON</Link>
+          <h2 className="text-4xl font-serif italic leading-tight">{subjectName}</h2>
         </div>
-        <div className="flex-1 overflow-y-auto py-10">
-          {lessons.map((_, i) => (
-            <button 
-              key={i} 
-              onClick={() => setActive(i)} 
-              className={`w-full text-left px-12 py-8 flex items-center justify-between transition-all duration-300 ${active === i ? 'bg-white border-l-8 border-pink-400 translate-x-4 shadow-md' : 'hover:bg-pink-50 opacity-40 hover:opacity-100 hover:translate-x-2'}`}
-            >
-              <span className={`font-black text-base uppercase tracking-widest ${active === i ? 'text-pink-600' : 'text-gray-700'}`}>Lesson 0{i + 1}</span>
-              {active === i && <span className="animate-bounce">🌸</span>}
+        <div className="flex-1 py-16 overflow-y-auto space-y-6 px-8">
+          {lessons.map(num => (
+            <button key={num} onClick={() => {setActiveLesson(num); setActiveTab("video"); setQuizScore(null); setSelectedAnswers({});}} 
+              className={`w-full text-left px-12 py-10 transition-all rounded-[3rem] flex items-center justify-between group ${activeLesson === num ? 'bg-white shadow-2xl text-pink-500 scale-105' : 'text-slate-500 hover:bg-white/40'}`}>
+              <span className="text-lg font-black uppercase tracking-[0.3em]">Lesson 0{num}</span>
+              <span className={`text-3xl transition-transform duration-500 ${activeLesson === num ? 'rotate-12' : 'group-hover:rotate-12'}`}>🐚</span>
             </button>
           ))}
         </div>
       </div>
-      <div className="flex-1 p-16 bg-[#FFFDFB] flex flex-col items-center justify-center relative">
-        <div className="w-full h-full bg-black rounded-tr-[10rem] rounded-bl-[10rem] overflow-hidden shadow-2xl border-[16px] border-white ring-1 ring-pink-50 transition-all duration-700 hover:shadow-pink-200/50 hover:shadow-3xl">
-           <iframe className="w-full h-full" src={lessons[active]?.replace("watch?v=", "embed/")} allowFullScreen></iframe>
+
+      <div className="flex-1 flex flex-col relative overflow-hidden">
+        <div className="h-40 border-b-4 border-white/60 flex items-center px-24 gap-20 bg-white/40 backdrop-blur-xl">
+          {['video', 'document', 'quiz'].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`text-lg font-black uppercase tracking-[0.5em] transition-all relative py-6 ${activeTab === tab ? 'text-pink-500' : 'text-slate-500 hover:text-pink-300'}`}>
+              {tab === 'video' ? 'Canto' : tab === 'document' ? 'Scroll' : 'Reflection'}
+              {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-2 bg-pink-400 rounded-full shadow-[0_0_15px_#f43f5e]"></div>}
+            </button>
+          ))}
         </div>
+
+        <div className="flex-1 p-24 overflow-y-auto bg-gradient-to-br from-white/10 to-[#fdfafb]">
+          {activeTab === "video" && (
+            <div className="h-full flex flex-col items-center">
+              <div className="w-full aspect-video bg-white rounded-[6rem] shadow-2xl border-[32px] border-white overflow-hidden ring-12 ring-pink-50/50">
+                 <iframe className="w-full h-full" src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowFullScreen />
+              </div>
+              <h3 className="mt-16 text-6xl font-serif italic text-slate-800">Lesson {activeLesson}</h3>
+            </div>
+          )}
+          
+          {activeTab === "quiz" && (
+            <div className="max-w-4xl mx-auto space-y-16 pb-40">
+              <h3 className="text-6xl font-serif italic text-center text-slate-800">Evening Reflection</h3>
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="p-16 bg-white rounded-[5rem] border-4 border-pink-50 shadow-2xl">
+                  <p className="font-serif italic text-slate-700 mb-12 text-3xl">0{i+1}. Identify the shifting petal in this coastal arc?</p>
+                  <div className="grid grid-cols-1 gap-6">
+                    {['A', 'B', 'C', 'D'].map(opt => (
+                      <button key={opt} onClick={() => handleSelect(i, opt)}
+                        className={`w-full text-left p-10 rounded-[3rem] border-4 text-lg font-black transition-all ${selectedAnswers[i] === opt ? 'bg-gradient-to-r from-pink-500 to-rose-400 border-none text-white shadow-2xl scale-[1.03]' : 'border-pink-50 text-slate-400 hover:bg-pink-50'}`}>
+                        Option {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <button onClick={submitQuiz} className="w-full py-12 bg-slate-900 text-white font-black uppercase tracking-[1em] rounded-full text-lg shadow-2xl hover:bg-pink-500 transition-all duration-500">SUBMIT REFLECTION</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- 4. MASTER LAYOUT (Sidebar text increase) ---
+function Layout({ children }) {
+  const navigate = useNavigate();
+  return (
+    <div className="flex h-screen w-full bg-[#fdfafb] font-sans overflow-hidden text-slate-800">
+      <AtmosphereEngine />
+      
+      <aside className="w-[30rem] bg-white/40 border-r-4 border-white/60 flex flex-col z-50 backdrop-blur-3xl shadow-2xl">
+        <div className="p-20 text-center border-b-4 border-white/60 bg-gradient-to-br from-pink-50/50 to-white/50">
+          <h1 onClick={() => navigate('/')} className="text-6xl font-serif italic tracking-tighter text-pink-500 cursor-pointer hover:scale-105 transition-transform">Sakura Shores</h1>
+          <p className="text-sm font-black uppercase tracking-[0.5em] text-pink-300 mt-8 italic">INSTITUTIONAL LMS</p>
+        </div>
+        <nav className="p-16 space-y-10 mt-12 flex-1">
+          <button onClick={() => navigate('/')} className="w-full text-left p-10 rounded-[4rem] bg-white shadow-xl text-slate-600 hover:text-pink-500 font-black uppercase text-xl tracking-widest transition-all border-4 border-transparent hover:border-pink-100">THE HORIZON</button>
+          <button onClick={() => navigate('/attendance')} className="w-full text-left p-10 rounded-[4rem] bg-white/60 shadow-md text-slate-600 hover:text-pink-500 font-black uppercase text-xl tracking-widest transition-all border-4 border-transparent hover:border-pink-100">REGISTRY</button>
+        </nav>
+      </aside>
+
+      <div className="flex-1 flex flex-col relative overflow-hidden">
+        <header className="h-40 bg-white/20 backdrop-blur-2xl border-b-4 border-white/60 px-24 flex items-center justify-between z-40">
+          <div className="flex items-center gap-12">
+            <NavDropdown title="Academy" options={[{label: "Subjects", path: "/"}, {label: "Courses", path: "/"}]} />
+            <NavDropdown title="Trials" options={[{label: "Assignments", path: "/assignments"}, {label: "Quizzes", path: "/"}]} />
+            <NavDropdown title="Archive" options={[{label: "Profiles", path: "/"}, {label: "Submissions", path: "/assignments"}]} />
+          </div>
+          <div className="w-24 h-24 rounded-full bg-white border-8 border-pink-100 flex items-center justify-center text-5xl shadow-2xl animate-pulse">🌸</div>
+        </header>
+        <main className="flex-1 overflow-hidden z-10 relative">{children}</main>
       </div>
     </div>
   );
@@ -224,8 +250,8 @@ export default function App() {
     <Router>
       <Layout>
         <Routes>
-          <Route path="/" element={<CourseFeed />} />
-          <Route path="/course/:id" element={<CourseDetail />} />
+          <Route path="/" element={<StudentDashboard />} />
+          <Route path="/subject/:id" element={<SubjectDetail />} />
         </Routes>
       </Layout>
     </Router>
